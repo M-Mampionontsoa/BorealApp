@@ -1,0 +1,35 @@
+# Fichiers exclus de l'upload Vercel.
+#
+# Attention : dès que ce fichier existe, Vercel cesse de lire .gitignore.
+# Il faut donc y répliquer les exclusions essentielles, sinon un
+# `vercel deploy` en ligne de commande enverrait des données ou des secrets.
+#
+# Le point critique est `.data/` : `leads-store.ts` y écrit les soumissions
+# reçues, avec nom, courriel, téléphone et ville. Sans cette exclusion, ces
+# données voyagent dans le bundle de production et `/admin/leads` les affiche
+# à quiconque ouvre l'URL.
+
+# leads store — données personnelles, jamais versionnées
+.data
+
+# dépendances et builds
+node_modules
+.next
+out
+build
+.vercel
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# VCS et OS
+.git
+.gitignore
+.DS_Store
+
+# divers
+*.tsbuildinfo
+next-env.d.ts
+*.log

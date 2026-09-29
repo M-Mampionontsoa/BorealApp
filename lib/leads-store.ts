@@ -23,8 +23,13 @@ const DATA_FILE = path.join(DATA_DIR, "leads.json")
 
 type StoreState = {
   leads: Lead[]
-  /** `null` tant que le fichier n'a pas été lu. */
   loadedFromDisk: boolean
+  /**
+   * Lecture en cours, partagée entre appelants concurrents. Un booléen ne
+   * suffit pas : il serait positionné avant l'`await`, donc un second appel
+   * concurrent sortirait immédiatement avec un `leads` encore vide.
+   */
+  loading: Promise<void> | null
   warnedAboutDisk: boolean
 }
 
@@ -35,6 +40,7 @@ const globalForLeads = globalThis as typeof globalThis & {
 const state: StoreState = (globalForLeads.__borealLeads ??= {
   leads: [],
   loadedFromDisk: false,
+  loading: null,
   warnedAboutDisk: false,
 })
 
@@ -78,8 +84,22 @@ async function writeToDisk(leads: Lead[]): Promise<boolean> {
 
 async function ensureLoaded(): Promise<void> {
   if (state.loadedFromDisk) return
-  state.loadedFromDisk = true
-  state.leads = await readFromDisk()
+  // `??=` : le premier appelant crée la promesse, les suivants rejoignent
+  // celle qui est déjà en vol au lieu d'en déclencher une deuxième lecture.
+  state.loading ??= readFromDisk().then(
+    (leads) => {
+      state.leads = leads
+      state.loadedFromDisk = true
+      state.loading = null
+    },
+    (error: unknown) => {
+      // Ne pas laisser une promesse rejetée en cache : l'appel suivant doit
+      // pouvoir réessayer.
+      state.loading = null
+      throw error
+    }
+  )
+  return state.loading
 }
 
 export function newLeadId(): string {
